@@ -65,8 +65,10 @@ static inline struct novatek *to_novatek(struct drm_panel *panel)
 
 static inline struct mipi_dsi_device *to_primary_dsi(struct novatek *ctx)
 {
-	/* Sync on DSI1 for dual dsi */
-	return ctx->desc->is_dual_dsi ? ctx->dsi[1] : ctx->dsi[0];
+	/* elden's downstream command master is DSI0; the MSM manager mirrors
+	 * each write to DSI1 before triggering the DSI0 broadcast master.
+	 */
+	return ctx->dsi[0];
 }
 
 static void novatek_reset(struct novatek *ctx)
@@ -100,18 +102,33 @@ static int novatek_prepare(struct drm_panel *panel)
 	ret = ctx->desc->init_sequence(&dsi_ctx);
 	if (ret < 0) {
 		dev_err(dev, "Failed to initialize panel: %d\n", ret);
-		gpiod_set_value_cansleep(ctx->reset_gpio, 1);
-		regulator_bulk_disable(ARRAY_SIZE(novatek_supplies),
-				       ctx->supplies);
-		return ret;
+		goto power_off;
 	}
 
 	drm_dsc_pps_payload_pack(&pps, &ctx->dsc);
 	mipi_dsi_picture_parameter_set_multi(&dsi_ctx, &pps);
 	mipi_dsi_compression_mode_multi(&dsi_ctx, true);
 	mipi_dsi_msleep(&dsi_ctx, 28);
+	ret = dsi_ctx.accum_err;
+	if (ret)
+		goto power_off;
 
-	return backlight_enable(ctx->backlight);
+	ret = backlight_enable(ctx->backlight);
+	if (ret)
+		goto power_off;
+
+	return 0;
+
+power_off:
+	gpiod_set_value_cansleep(ctx->reset_gpio, 1);
+	regulator_bulk_disable(ARRAY_SIZE(novatek_supplies), ctx->supplies);
+	return ret;
+}
+
+static int novatek_enable(struct drm_panel *panel)
+{
+	/* The bridge enable chain can continue after a failed prepare callback. */
+	return panel->prepared ? 0 : -EIO;
 }
 
 static int novatek_off(struct mipi_dsi_multi_context *dsi_ctx)
@@ -177,6 +194,7 @@ static int novatek_get_modes(struct drm_panel *panel,
 
 static const struct drm_panel_funcs novatek_panel_funcs = {
 	.prepare = novatek_prepare,
+	.enable = novatek_enable,
 	.unprepare = novatek_unprepare,
 	.get_modes = novatek_get_modes,
 };
@@ -320,6 +338,28 @@ static const struct drm_display_mode csot_pp8807hb1_1_modes[] = {
 		.vsync_end = 3040 + 10226 + 4,
 		.vtotal = 3040 + 10226 + 4 + 330,
 	},
+	{
+		.clock = (952 + 138 + 16 + 16) * 2 * (3040 + 6826 + 4 + 330) * 40 / 1000,
+		.hdisplay = 952 * 2,
+		.hsync_start = (952 + 138) * 2,
+		.hsync_end = (952 + 138 + 16) * 2,
+		.htotal = (952 + 138 + 16 + 16) * 2,
+		.vdisplay = 3040,
+		.vsync_start = 3040 + 6826,
+		.vsync_end = 3040 + 6826 + 4,
+		.vtotal = 3040 + 6826 + 4 + 330,
+	},
+	{
+		.clock = (952 + 138 + 16 + 16) * 2 * (3040 + 13626 + 4 + 330) * 24 / 1000,
+		.hdisplay = 952 * 2,
+		.hsync_start = (952 + 138) * 2,
+		.hsync_end = (952 + 138 + 16) * 2,
+		.htotal = (952 + 138 + 16 + 16) * 2,
+		.vdisplay = 3040,
+		.vsync_start = 3040 + 13626,
+		.vsync_end = 3040 + 13626 + 4,
+		.vtotal = 3040 + 13626 + 4 + 330,
+	},
 	/* 1064606.4 KHz */
 	{
 		.clock = (952 + 50 + 16 + 16) * 2 * (3040 + 26 + 4 + 50) * 165 / 1000,
@@ -417,6 +457,18 @@ static int novatek_probe(struct mipi_dsi_device *dsi)
 	ctx->dsi[0] = dsi;
 	mipi_dsi_set_drvdata(dsi, ctx);
 
+	/* Resolve suppliers before attachment can bind DRM and prepare the panel. */
+	if (desc->has_dcs_backlight) {
+		ctx->backlight = novatek_create_backlight(ctx);
+		if (IS_ERR(ctx->backlight))
+			return dev_err_probe(dev, PTR_ERR(ctx->backlight),
+					     "Failed to create backlight\n");
+	} else {
+		ret = drm_panel_of_backlight(&ctx->panel);
+		if (ret)
+			return dev_err_probe(dev, ret, "Failed to get backlight\n");
+	}
+
 	ctx->panel.prepare_prev_first = true;
 
 	ret = devm_drm_panel_add(dev, &ctx->panel);
@@ -428,21 +480,13 @@ static int novatek_probe(struct mipi_dsi_device *dsi)
 		ctx->dsi[i]->format = desc->format;
 		ctx->dsi[i]->mode_flags = desc->mode_flags;
 		ctx->dsi[i]->dsc = &ctx->dsc;
+	}
+
+	for (i = 0; i < num_dsi; i++) {
 		ret = devm_mipi_dsi_attach(dev, ctx->dsi[i]);
 		if (ret < 0)
 			return dev_err_probe(dev, ret,
 					     "Failed to attach to DSI host\n");
-	}
-
-	if (desc->has_dcs_backlight) {
-		ctx->backlight = novatek_create_backlight(ctx);
-		if (IS_ERR(ctx->backlight))
-			return dev_err_probe(dev, PTR_ERR(ctx->backlight),
-					     "Failed to create backlight\n");
-	} else {
-		ret = drm_panel_of_backlight(&ctx->panel);
-		if (ret)
-			return dev_err_probe(dev, ret, "Failed to get backlight\n");
 	}
 
 	return 0;

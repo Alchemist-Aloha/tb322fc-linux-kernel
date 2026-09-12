@@ -556,6 +556,12 @@ static const struct qcom_snd_soc_common sm8750_priv_data = {
 	.dapm_widgets = sc8280xp_dapm_widgets,
 	.num_dapm_widgets = ARRAY_SIZE(sc8280xp_dapm_widgets),
 	.wcd_jack = true,
+	/* I2S connected to the speaker amplifiers */
+	.mi2s_mclk_enable = true,
+	.mi2s_bclk_enable = true,
+	.codec_dai_fmt = SND_SOC_DAIFMT_BC_FC |
+			 SND_SOC_DAIFMT_NB_NF |
+			 SND_SOC_DAIFMT_I2S,
 };
 
 static const struct of_device_id snd_sc8280xp_dt_match[] = {
@@ -586,6 +592,7 @@ static struct platform_driver snd_sc8280xp_driver = {
 	.driver = {
 		.name = "snd-sc8280xp",
 		.of_match_table = snd_sc8280xp_dt_match,
+		.pm = &snd_soc_pm_ops,
 	},
 };
 module_platform_driver(snd_sc8280xp_driver);

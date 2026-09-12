@@ -41,6 +41,7 @@ static int msm_fbdev_mmap(struct fb_info *info, struct vm_area_struct *vma)
 static void msm_fbdev_fb_destroy(struct fb_info *info)
 {
 	struct drm_fb_helper *helper = (struct drm_fb_helper *)info->par;
+	struct msm_drm_private *priv = helper->dev->dev_private;
 	struct drm_gem_object *bo = msm_framebuffer_bo(helper->fb, 0);
 
 	DBG();
@@ -48,6 +49,8 @@ static void msm_fbdev_fb_destroy(struct fb_info *info)
 	drm_fb_helper_fini(helper);
 
 	msm_gem_put_vaddr(bo);
+	msm_gem_unpin_iova(bo, priv->kms->vm);
+	msm_gem_vma_put(bo);
 
 	drm_client_buffer_delete(helper->buffer);
 	drm_client_release(&helper->client);
@@ -142,10 +145,11 @@ int msm_fbdev_driver_fbdev_probe(struct drm_fb_helper *helper,
 	 * in panic (ie. lock-safe, etc) we could avoid pinning the
 	 * buffer now:
 	 */
+	msm_gem_vma_get(bo);
 	ret = msm_gem_get_and_pin_iova(bo, priv->kms->vm, &paddr);
 	if (ret) {
 		drm_err(dev, "failed to get buffer obj iova: %d\n", ret);
-		goto err_drm_client_buffer_delete;
+		goto err_msm_gem_vma_put;
 	}
 
 	DBG("fbi=%p, dev=%p", fbi, dev);
@@ -181,8 +185,8 @@ int msm_fbdev_driver_fbdev_probe(struct drm_fb_helper *helper,
 
 err_msm_gem_unpin:
 	msm_gem_unpin_iova(bo, priv->kms->vm);
+err_msm_gem_vma_put:
 	msm_gem_vma_put(bo);
-err_drm_client_buffer_delete:
 	drm_client_buffer_delete(buffer);
 err_drm_gem_handle_delete:
 	drm_gem_handle_delete(file, handle);

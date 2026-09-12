@@ -94,7 +94,6 @@ struct qcom_pas {
 	const char *info_name;
 
 	const struct firmware *firmware;
-	const struct firmware *dtb_firmware;
 
 	phys_addr_t mem_phys;
 	phys_addr_t dtb_mem_phys;
@@ -231,6 +230,7 @@ static int qcom_pas_unprepare(struct rproc *rproc)
 static int qcom_pas_load(struct rproc *rproc, const struct firmware *fw)
 {
 	struct qcom_pas *pas = rproc->priv;
+	const struct firmware *dtb_firmware;
 	int ret;
 
 	/* Store firmware handle to be used in qcom_pas_start() */
@@ -242,18 +242,18 @@ static int qcom_pas_load(struct rproc *rproc, const struct firmware *fw)
 		qcom_pas_shutdown(pas->lite_dtb_pas_id);
 
 	if (pas->dtb_pas_id) {
-		ret = request_firmware(&pas->dtb_firmware, pas->dtb_firmware_name, pas->dev);
+		ret = request_firmware(&dtb_firmware, pas->dtb_firmware_name, pas->dev);
 		if (ret) {
 			dev_err(pas->dev, "request_firmware failed for %s: %d\n",
 				pas->dtb_firmware_name, ret);
 			return ret;
 		}
 
-		ret = qcom_mdt_pas_load(pas->dtb_pas_ctx, pas->dtb_firmware,
+		ret = qcom_mdt_pas_load(pas->dtb_pas_ctx, dtb_firmware,
 					pas->dtb_firmware_name, &pas->dtb_mem_reloc);
+		release_firmware(dtb_firmware);
 		if (ret) {
 			qcom_pas_metadata_release(pas->dtb_pas_ctx);
-			release_firmware(pas->dtb_firmware);
 			return ret;
 		}
 	}
