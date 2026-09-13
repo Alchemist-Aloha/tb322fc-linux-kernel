@@ -1277,7 +1277,8 @@ TEST(alert_all)
 #define STRESS_LOOPS 10000
 #define STRESS_THREADS 4
 
-static unsigned int stress_counter;
+/* The ioctl-based mutex is invisible to the compiler. */
+static volatile unsigned int stress_counter;
 static int stress_device, stress_start_event, stress_mutex;
 
 static void *stress_thread(void *arg)
