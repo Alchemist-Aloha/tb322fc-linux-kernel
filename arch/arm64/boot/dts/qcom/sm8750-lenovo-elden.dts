@@ -1923,6 +1923,18 @@
 	};
 };
 
+&pmk8550_rtc {
+	nvmem-cells = <&rtc_offset>;
+	nvmem-cell-names = "offset";
+};
+
+&pmk8550_sdam_2 {
+	/* Not claimed by any cell in the stock device trees. */
+	rtc_offset: rtc-offset@b0 {
+		reg = <0xb0 0x4>;
+	};
+};
+
 &qupv3_1 {
 	status = "okay";
 };
