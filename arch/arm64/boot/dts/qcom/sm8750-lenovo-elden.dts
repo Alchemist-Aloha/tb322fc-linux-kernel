@@ -24,7 +24,7 @@
 	compatible = "lenovo,elden", "qcom,sm8750";
 	chassis-type = "tablet";
 
-	/* Stock CPU/GPU thermal HAL junction limit: 105 C, 5 C hysteresis. */
+	/* Stock CPU thermal HAL junction limit: 105 C, 5 C hysteresis. The GPU starts at 95 C, like the CPU trips in sm8750.dtsi. */
 	thermal-zones {
 		cpu-0-0-0-thermal {
 			polling-delay-passive = <100>;
@@ -335,7 +335,7 @@
 
 			trips {
 				gpuss0_passive: passive {
-					temperature = <105000>;
+					temperature = <95000>;
 					hysteresis = <5000>;
 					type = "passive";
 				};
@@ -354,7 +354,7 @@
 
 			trips {
 				gpuss1_passive: passive {
-					temperature = <105000>;
+					temperature = <95000>;
 					hysteresis = <5000>;
 					type = "passive";
 				};
@@ -373,7 +373,7 @@
 
 			trips {
 				gpuss2_passive: passive {
-					temperature = <105000>;
+					temperature = <95000>;
 					hysteresis = <5000>;
 					type = "passive";
 				};
@@ -392,7 +392,7 @@
 
 			trips {
 				gpuss3_passive: passive {
-					temperature = <105000>;
+					temperature = <95000>;
 					hysteresis = <5000>;
 					type = "passive";
 				};
@@ -411,7 +411,7 @@
 
 			trips {
 				gpuss4_passive: passive {
-					temperature = <105000>;
+					temperature = <95000>;
 					hysteresis = <5000>;
 					type = "passive";
 				};
@@ -430,7 +430,7 @@
 
 			trips {
 				gpuss5_passive: passive {
-					temperature = <105000>;
+					temperature = <95000>;
 					hysteresis = <5000>;
 					type = "passive";
 				};
@@ -449,7 +449,7 @@
 
 			trips {
 				gpuss6_passive: passive {
-					temperature = <105000>;
+					temperature = <95000>;
 					hysteresis = <5000>;
 					type = "passive";
 				};
@@ -468,7 +468,7 @@
 
 			trips {
 				gpuss7_passive: passive {
-					temperature = <105000>;
+					temperature = <95000>;
 					hysteresis = <5000>;
 					type = "passive";
 				};
