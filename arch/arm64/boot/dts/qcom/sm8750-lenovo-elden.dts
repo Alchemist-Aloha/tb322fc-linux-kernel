@@ -827,8 +827,8 @@
 		ramoops@c2000000 {
 			compatible = "ramoops";
 			reg = <0 0xc2000000 0 0x400000>;
+			record-size = <0x40000>;
 			console-size = <0x200000>;
-			pmsg-size = <0x200000>;
 			no-map;
 		};
 
