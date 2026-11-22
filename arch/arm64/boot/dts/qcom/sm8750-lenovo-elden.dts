@@ -1013,6 +1013,13 @@
 	};
 };
 
+/* fastrpc assigns the whole region to the DSP at probe, so Linux must not allocate from it. */
+&adsp_rpc_remote_heap_mem {
+	/delete-property/ compatible;
+	/delete-property/ reusable;
+	no-map;
+};
+
 &apps_rsc {
 	regulators-0 {
 		compatible = "qcom,pm8550-rpmh-regulators";
