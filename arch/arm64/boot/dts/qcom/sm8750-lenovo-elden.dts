@@ -2759,6 +2759,11 @@
 };
 
 &ufs_mem_hc {
+	reg = <0x0 0x01d84000 0x0 0x3000>,
+	      <0x0 0x01da0000 0x0 0x7000>;
+	reg-names = "std", "mcq";
+	msi-parent = <&gic_its 0x60>;
+
 	reset-gpios = <&tlmm 215 GPIO_ACTIVE_LOW>;
 
 	vcc-supply = <&vreg_l17b_2p5>;
