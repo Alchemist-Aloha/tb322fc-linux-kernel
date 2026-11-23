@@ -525,7 +525,16 @@ static int dwc3_mux_role_set(struct usb_role_switch *sw, enum usb_role role)
 	}
 
 	port->role = role;
-	if (mux->ports[0].role != USB_ROLE_NONE)
+	/*
+	 * A peripheral on port 1 (the short edge, USB 2 only) wins. The mux
+	 * only steers the USB 2 lines and SuperSpeed is wired to port 0 alone,
+	 * so if port 0 is also a host its SuperSpeed link stays up; USB 2-only
+	 * devices there drop until port 1 is unplugged. If port 0 wants device
+	 * mode (a PC), it loses its data link but keeps charging.
+	 */
+	if (mux->ports[1].role == USB_ROLE_HOST)
+		selected = 1;
+	else if (mux->ports[0].role != USB_ROLE_NONE)
 		selected = 0;
 	else if (mux->ports[1].role != USB_ROLE_NONE)
 		selected = 1;
