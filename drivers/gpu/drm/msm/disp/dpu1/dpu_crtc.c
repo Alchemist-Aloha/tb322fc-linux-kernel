@@ -1384,10 +1384,13 @@ static struct msm_display_topology dpu_crtc_get_topology(
 	struct drm_display_mode *mode = &crtc_state->adjusted_mode;
 	struct msm_display_topology topology = {0};
 	struct drm_encoder *drm_enc;
+	bool mst = false;
 
-	drm_for_each_encoder_mask(drm_enc, crtc->dev, crtc_state->encoder_mask)
+	drm_for_each_encoder_mask(drm_enc, crtc->dev, crtc_state->encoder_mask) {
 		dpu_encoder_update_topology(drm_enc, &topology, crtc_state->state,
 					    &crtc_state->adjusted_mode);
+		mst |= drm_enc->encoder_type == DRM_MODE_ENCODER_DPMST;
+	}
 
 	topology.cwb_enabled = drm_crtc_in_clone_mode(crtc_state);
 
@@ -1421,6 +1424,17 @@ static struct msm_display_topology dpu_crtc_get_topology(
 		 topology.num_dsc == 0)
 		topology.num_lm = (mode->hdisplay > MAX_HDISPLAY_SPLIT) ? 2 : 1;
 	else
+		topology.num_lm = 1;
+
+	/*
+	 * MST streams share the DSPP-backed mixers (four on SM8750): keep a
+	 * stream on one mixer while the mode fits its width and clock, so two
+	 * 1080p streams and the panel can all have color management.
+	 */
+	if (mst && topology.num_lm == 2 && topology.num_intf == 1 &&
+	    !topology.num_dsc && !topology.cwb_enabled &&
+	    mode->hdisplay <= dpu_kms->catalog->caps->max_mixer_width &&
+	    (u64)mode->clock * 1000 <= dpu_kms->perf.max_core_clk_rate)
 		topology.num_lm = 1;
 
 	if (crtc_state->ctm || crtc_state->gamma_lut)
